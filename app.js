@@ -1,5 +1,6 @@
-// SmartScores Recorder - main app logic (summary updated; teacher remains populated after save)
+// SmartScores Recorder - main app logic (keep teacher option added)
 const STORAGE_KEY = 'smartscores_records_v1';
+const KEEP_TEACHER_KEY = 'smartscores_keep_teacher';
 
 let records = [];
 let editIndex = -1;
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const meanInput = document.getElementById('meanScore');
   const saveBtn = document.getElementById('saveBtn');
   const cancelEdit = document.getElementById('cancelEdit');
+  const keepTeacher = document.getElementById('keepTeacher');
 
   const filterTeacher = document.getElementById('filterTeacher');
   const filterGrade = document.getElementById('filterGrade');
@@ -38,6 +40,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const menuToggle = document.getElementById('menuToggle');
   const leftPanel = document.getElementById('leftPanel');
   const overlay = document.getElementById('overlay');
+
+  // restore keepTeacher state from localStorage (default: true)
+  const storedKeep = localStorage.getItem(KEEP_TEACHER_KEY);
+  if (storedKeep === null) {
+    keepTeacher.checked = true;
+  } else {
+    keepTeacher.checked = storedKeep === 'true';
+  }
+  keepTeacher.addEventListener('change', () => {
+    localStorage.setItem(KEEP_TEACHER_KEY, keepTeacher.checked ? 'true' : 'false');
+  });
 
   // load
   loadRecords();
@@ -128,13 +141,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     saveRecords();
 
-    // Reset the form except keep teacher populated to avoid spelling errors
-    // Resetting the form then restoring teacher is simplest and compatible
+    // Reset the form but optionally keep teacher (based on checkbox)
     const savedTeacher = rec.teacher;
     form.reset();
-    // restore teacher
-    teacherInput.value = savedTeacher;
-    // ensure selects are cleared
+    if (keepTeacher.checked) {
+      teacherInput.value = savedTeacher;
+    } else {
+      teacherInput.value = '';
+    }
+    // ensure other selects cleared
     subjectInput.value = '';
     gradeInput.value = '';
     streamInput.value = '';
@@ -152,8 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelEdit.style.display = 'none';
     document.getElementById('formTitle').innerText = 'Add Record';
     form.reset();
-    // keep teacher cleared on cancel (user can type new)
-    teacherInput.value = '';
+    // keep or clear teacher depending on checkbox
+    if (!keepTeacher.checked) teacherInput.value = '';
+    // ensure selects cleared
     subjectInput.value = '';
     gradeInput.value = '';
     streamInput.value = '';
