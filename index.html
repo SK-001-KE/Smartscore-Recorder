@@ -6,8 +6,6 @@
   <title>SmartScores Recorder</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <!-- html2pdf (wraps html2canvas + jsPDF) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -36,7 +34,6 @@
           <div class="form-grid">
             <label>Teacher name<input id="teacher" required autocomplete="off" /></label>
 
-            <!-- Updated subject/grade/stream/term/exam/year/mean inputs (per your request) -->
             <div>
               <label>Subject</label>
               <select id="subject">
@@ -166,10 +163,8 @@
           <div id="summary"></div>
         </section>
 
-        <section class="chart-section">
-          <h3>Subject Averages per Term</h3>
-          <canvas id="subjectChart" height="220"></canvas>
-        </section>
+        <!-- Graph removed per your request -->
+
       </section>
     </main>
 
@@ -179,15 +174,5 @@
   </div>
 
   <script src="app.js"></script>
-  <script>
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').then(() => {
-        console.log('Service Worker registered');
-      }).catch(err => {
-        console.warn('SW registration failed:', err);
-      });
-    }
-  </script>
 </body>
 </html>
