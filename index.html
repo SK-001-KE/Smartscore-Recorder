@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SmartScores Recorder</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- html2pdf (wraps html2canvas + jsPDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="header-left">
+        <button id="menuToggle" class="menu" aria-label="Toggle menu">☰</button>
+        <h1>SmartScores Recorder</h1>
+      </div>
+      <div class="header-actions">
+        <button id="btnExport">Export JSON</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none" />
+        <button id="btnImport">Import JSON</button>
+        <button id="btnPdf">Download PDF</button>
+        <button id="btnReset" class="danger">Reset All</button>
+      </div>
+    </header>
+
+    <div id="overlay" class="overlay" tabindex="-1" aria-hidden="true"></div>
+
+    <main>
+      <section class="left" id="leftPanel" aria-label="Controls and filters">
+        <form id="recordForm">
+          <h2 id="formTitle">Add Record</h2>
+          <div class="form-grid">
+            <label>Teacher name<input id="teacher" required autocomplete="off" /></label>
+            <label>Subject<input id="subject" required autocomplete="off" /></label>
+            <label>Grade<input id="grade" required autocomplete="off" /></label>
+            <label>Stream<input id="stream" required autocomplete="off" /></label>
+            <label>Term
+              <select id="term" required>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </label>
+            <label>Exam type
+              <select id="examType" required>
+                <option>Opener</option>
+                <option>Mid Term</option>
+                <option>End Term</option>
+              </select>
+            </label>
+            <label>Year<input id="year" type="number" min="1900" max="2100" required /></label>
+            <label>Mean Score<input id="meanScore" type="number" min="0" max="100" required /></label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="saveBtn">Save</button>
+            <button type="button" id="cancelEdit" class="secondary" style="display:none">Cancel Edit</button>
+          </div>
+        </form>
+
+        <section class="filters">
+          <h3>Filters & Search</h3>
+          <div class="filter-row">
+            <select id="filterTeacher"><option value="">All Teachers</option></select>
+            <select id="filterGrade"><option value="">All Grades</option></select>
+          </div>
+          <div class="filter-row">
+            <select id="filterStream"><option value="">All Streams</option></select>
+            <select id="filterYear"><option value="">All Years</option></select>
+          </div>
+          <div class="search-row">
+            <input id="searchBox" placeholder="Search by teacher, subject, grade, stream, exam, year..." />
+            <button id="clearFilters">Clear</button>
+          </div>
+        </section>
+
+        <section class="insights" id="insights">
+          <h3>Smart Insights</h3>
+          <div id="insightsContent">No insights yet.</div>
+        </section>
+      </section>
+
+      <section class="right" id="rightPanel">
+        <section class="table-section">
+          <h3>Records</h3>
+          <div class="table-wrap">
+            <table id="recordsTable" aria-describedby="records-description">
+              <thead>
+                <tr>
+                  <th>Teacher</th>
+                  <th>Subject</th>
+                  <th>Grade</th>
+                  <th>Stream</th>
+                  <th>Term</th>
+                  <th>Exam</th>
+                  <th>Year</th>
+                  <th>Mean</th>
+                  <th>Rubric</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="summary-section">
+          <h3>Average Score Summary</h3>
+          <div id="summary"></div>
+        </section>
+
+        <section class="chart-section">
+          <h3>Subject Averages per Term</h3>
+          <canvas id="subjectChart" height="220"></canvas>
+        </section>
+      </section>
+    </main>
+
+    <footer>
+      <small>SmartScores Recorder — offline-capable PWA. Data stored in browser localStorage.</small>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(() => {
+        console.log('Service Worker registered');
+      }).catch(err => {
+        console.warn('SW registration failed:', err);
+      });
+    }
+  </script>
+</body>
+</html>
