@@ -1,4 +1,8 @@
-// SmartScores Recorder - main app logic (keep teacher option added)
+// SmartScores Recorder - main app logic
+// Summary updated: average per teacher+subject+grade+stream+term+year calculated from cumulative exams entered for that term.
+// PDF and HTML summary use the same grouped logic (averages are computed from available exam records only).
+
+const { jsPDF } = window.jspdf;
 const STORAGE_KEY = 'smartscores_records_v1';
 const KEEP_TEACHER_KEY = 'smartscores_keep_teacher';
 
@@ -45,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const storedKeep = localStorage.getItem(KEEP_TEACHER_KEY);
   if (storedKeep === null) {
     keepTeacher.checked = true;
+    localStorage.setItem(KEEP_TEACHER_KEY, 'true');
   } else {
     keepTeacher.checked = storedKeep === 'true';
   }
@@ -189,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
   });
 
-  // Export/Import/Reset/PDF
+  // Export/Import/Reset
   btnExport.addEventListener('click', () => {
     const dataStr = JSON.stringify(records, null, 2);
     const blob = new Blob([dataStr], {type: 'application/json'});
@@ -233,37 +238,117 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
   });
 
+  // PDF: using jsPDF + autoTable to produce native text PDF (no buttons, not a screenshot)
   btnPdf.addEventListener('click', () => {
-    // Build a print-friendly container
-    const container = document.createElement('div');
-    container.style.padding = '16px';
-    const title = document.createElement('h1');
-    title.innerText = 'SmartScores Recorder - Report';
-    container.appendChild(title);
+    const filtered = applyFilters(records);
 
-    // Add records table snapshot
-    const table = document.querySelector('#recordsTable').cloneNode(true);
-    table.style.width = '100%';
-    container.appendChild(table);
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let cursorY = 14;
+    doc.setFontSize(16);
+    doc.text('SmartScores Recorder - Report', pageWidth / 2, cursorY, { align: 'center' });
 
-    // Add summary
-    const sumNode = summaryDiv.cloneNode(true);
-    container.appendChild(sumNode);
+    doc.setFontSize(10);
+    cursorY += 8;
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, cursorY);
 
-    // Add insights
-    const insClone = insightsDiv.cloneNode(true);
-    container.appendChild(insClone);
+    // Records table
+    cursorY += 8;
+    if (filtered.length) {
+      const recordsHead = [['Teacher','Subject','Grade','Stream','Term','Exam Type','Year','Mean','Rubric']];
+      const recordsBody = filtered.map(r => {
+        const rub = rubric(r.meanScore);
+        return [
+          r.teacher,
+          r.subject,
+          r.grade,
+          r.stream,
+          r.term,
+          r.examType,
+          r.year,
+          String(r.meanScore),
+          `${emojiFor(rub.key)} ${rub.label}`
+        ];
+      });
 
-    // Use html2pdf
-    const opt = {
-      margin: 10,
-      filename: `SmartScores_Report_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
-    };
-    html2pdf().from(container).set(opt).save();
+      doc.autoTable({
+        head: recordsHead,
+        body: recordsBody,
+        startY: cursorY,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [79,70,229], textColor: 255 },
+        columnStyles: {
+          0: { cellWidth: 32 }, // teacher
+          1: { cellWidth: 30 }, // subject
+          2: { cellWidth: 10 }, // grade
+          3: { cellWidth: 18 }, // stream
+          4: { cellWidth: 10 }, // term
+          5: { cellWidth: 24 }, // exam
+          6: { cellWidth: 14 }, // year
+          7: { cellWidth: 12 }, // mean
+          8: { cellWidth: 28 }  // rubric
+        }
+      });
+
+      cursorY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : cursorY + 8;
+    } else {
+      doc.text('No records to display.', 14, cursorY);
+      cursorY += 10;
+    }
+
+    // Summary table (grouped per teacher+subject+grade+stream+term+year)
+    const summaryEntries = buildSummaryEntries(filtered);
+    if (summaryEntries.length) {
+      const summaryHead = [['Teacher','Subject','Grade','Stream','Term','Year','Exams','Average','Rubric']];
+      const summaryBody = summaryEntries.map(en => [
+        en.teacher,
+        en.subject,
+        en.grade,
+        en.stream,
+        en.term,
+        en.year,
+        String(en.examsCount),
+        String(en.average),
+        `${emojiFor(en.rubricKey)} ${en.rubricLabel}`
+      ]);
+
+      doc.autoTable({
+        head: summaryHead,
+        body: summaryBody,
+        startY: cursorY,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [6,78,59], textColor: 255 },
+        margin: { left: 14, right: 14 }
+      });
+
+      cursorY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : cursorY + 8;
+    } else {
+      doc.text('No summary available.', 14, cursorY);
+      cursorY += 10;
+    }
+
+    // Insights (text paragraphs)
+    const insights = buildInsights(filtered);
+    if (insights.length) {
+      doc.setFontSize(11);
+      doc.text('Smart Insights', 14, cursorY);
+      cursorY += 6;
+      doc.setFontSize(10);
+
+      insights.forEach(line => {
+        const split = doc.splitTextToSize(line, pageWidth - 28); // left/right margins
+        if (cursorY + (split.length * 6) > doc.internal.pageSize.getHeight() - 14) {
+          doc.addPage();
+          cursorY = 14;
+        }
+        doc.text(split, 14, cursorY);
+        cursorY += split.length * 6;
+      });
+    }
+
+    // Save file
+    const filename = `SmartScores_Report_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.pdf`;
+    doc.save(filename);
   });
 
   // Helper functions
@@ -355,10 +440,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    arr.forEach((r, idx) => {
+    arr.forEach((r) => {
       const tr = document.createElement('tr');
 
-      // Build cells with data-label attributes for responsive CSS
       const addCell = (label, contentHtml) => {
         const td = document.createElement('td');
         td.setAttribute('data-label', label);
@@ -380,19 +464,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const rubricCell = document.createElement('td');
       rubricCell.setAttribute('data-label', 'Rubric');
       rubricCell.className = 'rubric';
-      // badge
       const badgeWrap = document.createElement('div');
       badgeWrap.innerHTML = rubricHtml(r.meanScore);
       rubricCell.appendChild(badgeWrap);
 
-      // actions
       const actions = document.createElement('div');
       actions.className = 'record-actions';
       actions.style.marginLeft = '8px';
       const btnE = document.createElement('button');
       btnE.textContent = 'Edit';
       btnE.addEventListener('click', () => {
-        // Find original index in records (not filtered arr). Match by unique keys
         const originalIndex = records.findIndex(orig =>
           orig.teacher === r.teacher && orig.subject === r.subject &&
           orig.grade === r.grade && orig.stream === r.stream &&
@@ -460,45 +541,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return {key:'below', color:'#dc2626', label:'Below Expectations'};
   }
 
+  // RENDER SUMMARY: average per teacher+subject+grade+stream+term+year from cumulative exams entered for that term.
   function renderSummary(arr) {
-    // Build grouped averages keyed by teacher|subject|grade|stream|examType|term|year
-    if (!arr.length) {
+    const entries = buildSummaryEntries(arr);
+
+    if (!entries.length) {
       summaryDiv.innerHTML = '<div>No summary available.</div>';
       return;
     }
-    const map = {};
-    arr.forEach(r => {
-      const key = `${r.teacher}|||${r.subject}|||${r.grade}|||${r.stream}|||${r.examType}|||${r.term}|||${r.year}`;
-      if (!map[key]) map[key] = { teacher: r.teacher, subject: r.subject, grade: r.grade, stream: r.stream, examType: r.examType, term: r.term, year: r.year, total: 0, count: 0 };
-      map[key].total += r.meanScore;
-      map[key].count += 1;
-    });
-
-    const entries = Object.values(map).map(e => {
-      const avg = e.count ? Number((e.total / e.count).toFixed(2)) : 0;
-      const r = rubric(avg);
-      return {
-        teacher: e.teacher,
-        subject: e.subject,
-        grade: e.grade,
-        stream: e.stream,
-        examType: e.examType,
-        term: e.term,
-        year: e.year,
-        average: avg,
-        rubricKey: r.key,
-        rubricLabel: r.label,
-        rubricColor: r.color
-      };
-    });
-
-    // sort by teacher, subject, year, term for readability
-    entries.sort((a,b) => {
-      if (a.teacher !== b.teacher) return a.teacher.localeCompare(b.teacher, undefined, {numeric:true});
-      if (a.subject !== b.subject) return a.subject.localeCompare(b.subject, undefined, {numeric:true});
-      if (a.year !== b.year) return a.year.localeCompare(b.year, undefined, {numeric:true});
-      return a.term.localeCompare(b.term, undefined, {numeric:true});
-    });
 
     const table = document.createElement('table');
     table.className = 'summary-table';
@@ -509,9 +559,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <th>Subject</th>
           <th>Grade</th>
           <th>Stream</th>
-          <th>Exam Type</th>
           <th>Term</th>
           <th>Year</th>
+          <th>Exams</th>
           <th>Average</th>
           <th>Rubric</th>
         </tr>
@@ -530,9 +580,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tr.appendChild(add(en.subject));
       tr.appendChild(add(en.grade));
       tr.appendChild(add(en.stream));
-      tr.appendChild(add(en.examType));
       tr.appendChild(add(en.term));
       tr.appendChild(add(en.year));
+      tr.appendChild(add(en.examsCount));
       tr.appendChild(add(en.average));
       const rubricTd = document.createElement('td');
       rubricTd.innerHTML = `<span style="color:${en.rubricColor};font-weight:700">${emojiFor(en.rubricKey)} ${en.rubricLabel}</span>`;
@@ -542,6 +592,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
     summaryDiv.innerHTML = '';
     summaryDiv.appendChild(table);
+  }
+
+  // Build grouped summary entries (per teacher+subject+grade+stream+term+year)
+  // Average is computed from all exam records present (opener, mid term, end term — but only those entered).
+  function buildSummaryEntries(arr) {
+    if (!arr.length) return [];
+    const map = {};
+    // group by teacher|subject|grade|stream|term|year
+    arr.forEach(r => {
+      const key = `${r.teacher}|||${r.subject}|||${r.grade}|||${r.stream}|||${r.term}|||${r.year}`;
+      if (!map[key]) map[key] = {
+        teacher: r.teacher,
+        subject: r.subject,
+        grade: r.grade,
+        stream: r.stream,
+        term: r.term,
+        year: r.year,
+        total: 0,
+        count: 0,
+        examTypes: new Set()
+      };
+      map[key].total += r.meanScore;
+      map[key].count += 1;
+      map[key].examTypes.add(r.examType);
+    });
+
+    const entries = Object.values(map).map(e => {
+      const avg = e.count ? Number((e.total / e.count).toFixed(2)) : 0;
+      const r = rubric(avg);
+      return {
+        teacher: e.teacher,
+        subject: e.subject,
+        grade: e.grade,
+        stream: e.stream,
+        term: e.term,
+        year: e.year,
+        examsCount: e.count, // number of exam records used in this term average
+        examsList: Array.from(e.examTypes).sort().join(', '), // for reference if needed
+        average: avg,
+        rubricKey: r.key,
+        rubricLabel: r.label,
+        rubricColor: r.color
+      };
+    });
+
+    // sort by teacher, subject, year, term for readability
+    entries.sort((a,b) => {
+      if (a.teacher !== b.teacher) return a.teacher.localeCompare(b.teacher, undefined, {numeric:true});
+      if (a.subject !== b.subject) return a.subject.localeCompare(b.subject, undefined, {numeric:true});
+      if (a.year !== b.year) return a.year.localeCompare(b.year, undefined, {numeric:true});
+      return a.term.localeCompare(b.term, undefined, {numeric:true});
+    });
+
+    return entries;
   }
 
   function emojiFor(key){
@@ -557,7 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
       insightsDiv.innerText = 'No insights available.';
       return;
     }
-    // Group by teacher + subject + grade + stream (to be specific)
+    // Group by teacher + subject + grade + stream
     const map = {};
     arr.forEach(r => {
       const key = `${r.teacher}|||${r.subject}|||${r.grade}|||${r.stream}`;
@@ -566,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
       map[key].count += 1;
     });
     const entries = Object.values(map);
-    // sort by avg desc for stronger performance first
+    // sort by avg desc
     entries.sort((a,b) => (b.total/b.count) - (a.total/a.count));
     entries.forEach(e => {
       const avg = Number((e.total / e.count).toFixed(2));
@@ -576,6 +680,25 @@ document.addEventListener('DOMContentLoaded', () => {
       div.style.borderLeft = `6px solid ${r.color}`;
       div.innerHTML = `${emojiFor(r.key)} <strong>${escapeHtml(e.teacher)}</strong> (${escapeHtml(e.subject)} - Grade ${escapeHtml(e.grade)}, ${escapeHtml(e.stream)}) is <span style="color:${r.color};font-weight:700">${r.label}</span> with an average of <strong>${avg}</strong>.`;
       insightsDiv.appendChild(div);
+    });
+  }
+
+  // Build insights strings for PDF (plain text)
+  function buildInsights(arr) {
+    if (!arr.length) return [];
+    const map = {};
+    arr.forEach(r => {
+      const key = `${r.teacher}|||${r.subject}|||${r.grade}|||${r.stream}`;
+      if (!map[key]) map[key] = {teacher:r.teacher, subject:r.subject, grade:r.grade, stream:r.stream, total:0, count:0};
+      map[key].total += r.meanScore;
+      map[key].count += 1;
+    });
+    const entries = Object.values(map);
+    entries.sort((a,b) => (b.total/b.count) - (a.total/a.count));
+    return entries.map(e => {
+      const avg = Number((e.total / e.count).toFixed(2));
+      const r = rubric(avg);
+      return `${emojiFor(r.key)} ${e.teacher} (${e.subject} - Grade ${e.grade}, ${e.stream}) is ${r.label} with an average of ${avg}.`;
     });
   }
 
