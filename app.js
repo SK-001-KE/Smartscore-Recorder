@@ -1,5 +1,4 @@
-// SmartScores Recorder - main app logic (responsive updates)
-// NOTE: Modified to add data-label attributes for mobile table layout and mobile drawer toggle.
+// SmartScores Recorder - main app logic (updated validation for select inputs)
 const STORAGE_KEY = 'smartscores_records_v1';
 
 let records = [];
@@ -73,17 +72,28 @@ document.addEventListener('DOMContentLoaded', () => {
   // Form submit
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+
+    // Basic required validation for selects and text input
+    const teacher = teacherInput.value.trim();
+    if (!teacher) return alert('Please enter the teacher name.');
+
+    if (!subjectInput.value) return alert('Please select a subject.');
+    if (!gradeInput.value) return alert('Please select a grade.');
+    if (!streamInput.value) return alert('Please select a stream.');
+    if (!termInput.value) return alert('Please select a term.');
+    if (!examInput.value) return alert('Please select an exam type.');
+
     // Validation of numeric fields
     const year = parseInt(yearInput.value, 10);
     const mean = parseFloat(meanInput.value);
-    if (isNaN(year) || year < 1900 || year > 2100) return alert('Please enter a valid year.');
-    if (isNaN(mean) || mean < 0 || mean > 100) return alert('Mean score must be between 0 and 100.');
+    if (isNaN(year) || year < 1900 || year > 2100) return alert('Please enter a valid year between 1900 and 2100.');
+    if (isNaN(mean) || mean < 0 || mean > 100) return alert('Mean score must be a number between 0 and 100.');
 
     const rec = {
-      teacher: teacherInput.value.trim(),
-      subject: subjectInput.value.trim(),
-      grade: gradeInput.value.trim(),
-      stream: streamInput.value.trim(),
+      teacher,
+      subject: subjectInput.value,
+      grade: gradeInput.value,
+      stream: streamInput.value,
       term: String(termInput.value),
       examType: examInput.value,
       year: String(year),
@@ -94,9 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Duplicate check: same teacher, subject, grade, stream, term, examType, year
     const dupIndex = records.findIndex(r =>
       r.teacher.toLowerCase() === rec.teacher.toLowerCase() &&
-      r.subject.toLowerCase() === rec.subject.toLowerCase() &&
-      r.grade.toLowerCase() === rec.grade.toLowerCase() &&
-      r.stream.toLowerCase() === rec.stream.toLowerCase() &&
+      r.subject === rec.subject &&
+      r.grade === rec.grade &&
+      r.stream === rec.stream &&
       r.term === rec.term &&
       r.examType === rec.examType &&
       r.year === rec.year
@@ -117,6 +127,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     saveRecords();
     form.reset();
+    // ensure selects reset to empty (in case browser keeps old value)
+    subjectInput.value = '';
+    gradeInput.value = '';
+    streamInput.value = '';
+    termInput.value = '';
+    examInput.value = '';
     renderControls();
     renderAll();
     // Close drawer on mobile after saving
@@ -128,6 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelEdit.style.display = 'none';
     document.getElementById('formTitle').innerText = 'Add Record';
     form.reset();
+    subjectInput.value = '';
+    gradeInput.value = '';
+    streamInput.value = '';
+    termInput.value = '';
+    examInput.value = '';
   });
 
   // Filters & search
