@@ -1,9 +1,8 @@
-// SmartScores Recorder - main app logic (updated validation for select inputs)
+// SmartScores Recorder - main app logic (chart removed)
 const STORAGE_KEY = 'smartscores_records_v1';
 
 let records = [];
 let editIndex = -1;
-let chart = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
@@ -56,17 +55,19 @@ document.addEventListener('DOMContentLoaded', () => {
     overlay.classList.remove('show');
     overlay.setAttribute('aria-hidden', 'true');
   }
-  menuToggle.addEventListener('click', () => {
-    if (leftPanel.classList.contains('show')) closeDrawer();
-    else openDrawer();
-  });
-  overlay.addEventListener('click', () => closeDrawer());
+  if (menuToggle) {
+    menuToggle.addEventListener('click', () => {
+      if (leftPanel.classList.contains('show')) closeDrawer();
+      else openDrawer();
+    });
+  }
+  if (overlay) overlay.addEventListener('click', () => closeDrawer());
+
   // Close drawer when resizing to desktop
   window.addEventListener('resize', () => {
     if (window.innerWidth > 900) {
       closeDrawer();
     }
-    if (chart) chart.resize();
   });
 
   // Form submit
@@ -294,7 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTable(filtered);
     renderSummary(filtered);
     renderInsights(filtered);
-    renderChart(filtered);
   }
 
   function applyFilters(arr) {
@@ -505,46 +505,6 @@ document.addEventListener('DOMContentLoaded', () => {
       div.innerHTML = `${emojiFor(r.key)} <strong>${escapeHtml(e.teacher)}</strong> (${escapeHtml(e.subject)} - Grade ${escapeHtml(e.grade)}, ${escapeHtml(e.stream)}) is <span style="color:${r.color};font-weight:700">${r.label}</span> with an average of <strong>${avg}</strong>.`;
       insightsDiv.appendChild(div);
     });
-  }
-
-  function renderChart(arr) {
-    // produce dataset: for each subject, compute average per term
-    const subjects = uniqueSorted(arr.map(r => r.subject));
-    const terms = ['1','2','3'];
-
-    const labels = subjects;
-    const datasets = terms.map((t, idx) => {
-      const data = labels.map(s => {
-        const group = arr.filter(r => r.subject === s && r.term === t);
-        return group.length ? Number((group.reduce((s2,x) => s2 + x.meanScore,0) / group.length).toFixed(2)) : 0;
-      });
-      const colors = ['#2563eb', '#10b981', '#f59e0b'];
-      return {
-        label: `Term ${t}`,
-        data,
-        backgroundColor: colors[idx],
-        borderColor: colors[idx],
-        borderWidth: 1
-      };
-    });
-
-    const ctx = document.getElementById('subjectChart').getContext('2d');
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-          y: { beginAtZero: true, max: 100 }
-        }
-      }
-    });
-
-    // ensure chart resizes after small delays (useful on mobile when drawer toggles)
-    setTimeout(() => { if (chart) chart.resize(); }, 120);
   }
 
   // small helpers
