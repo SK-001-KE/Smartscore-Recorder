@@ -35,25 +35,79 @@
           <h2 id="formTitle">Add Record</h2>
           <div class="form-grid">
             <label>Teacher name<input id="teacher" required autocomplete="off" /></label>
-            <label>Subject<input id="subject" required autocomplete="off" /></label>
-            <label>Grade<input id="grade" required autocomplete="off" /></label>
-            <label>Stream<input id="stream" required autocomplete="off" /></label>
-            <label>Term
-              <select id="term" required>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
+
+            <!-- Updated subject/grade/stream/term/exam/year/mean inputs (per your request) -->
+            <div>
+              <label>Subject</label>
+              <select id="subject">
+                <option value="">--Select Subject--</option>
+                <option>Mathematics</option>
+                <option>English</option>
+                <option>Kiswahili</option>
+                <option>Science</option>
+                <option>Agriculture and Nutrition</option>
+                <option>Creative Arts</option>
+                <option>Social Studies</option>
+                <option>CRE</option>
+                <option>Pre-Technical Studies</option>
               </select>
-            </label>
-            <label>Exam type
-              <select id="examType" required>
-                <option>Opener</option>
-                <option>Mid Term</option>
-                <option>End Term</option>
+            </div>
+
+            <div>
+              <label>Grade</label>
+              <select id="grade">
+                <option value="">--Select Grade--</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>7</option>
+                <option>8</option>
+                <option>9</option>
               </select>
-            </label>
-            <label>Year<input id="year" type="number" min="1900" max="2100" required /></label>
-            <label>Mean Score<input id="meanScore" type="number" min="0" max="100" required /></label>
+            </div>
+
+            <div>
+              <label>Stream</label>
+              <select id="stream">
+                <option value="">--Select Stream--</option>
+                <option>Faith</option>
+                <option>Glory</option>
+                <option>Joy</option>
+                <option>Love</option>
+                <option>Peace</option>
+                <option>Unity</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Term</label>
+              <select id="term">
+                <option value="">--Select Term--</option>
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Exam Type</label>
+              <select id="examType">
+                <option value="">--Select Exam Type--</option>
+                <option>Opener Exam</option>
+                <option>Mid Term Exam</option>
+                <option>End Term Exam</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Year</label>
+              <input type="number" id="year" placeholder="Enter Year e.g. 2025" />
+            </div>
+
+            <div>
+              <label>Mean Score</label>
+              <input type="number" id="meanScore" placeholder="Enter Mean Score (0-100)" />
+            </div>
           </div>
 
           <div class="form-actions">
