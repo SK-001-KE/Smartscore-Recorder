@@ -6,8 +6,9 @@
   <title>SmartScores Recorder</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
-  <!-- html2pdf (wraps html2canvas + jsPDF) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- jsPDF and AutoTable for native-PDF (vector text, not screenshots) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
   <div class="app">
@@ -169,8 +170,6 @@
           <h3>Average Score Summary</h3>
           <div id="summary"></div>
         </section>
-
-        <!-- Graph removed per your request -->
 
       </section>
     </main>
