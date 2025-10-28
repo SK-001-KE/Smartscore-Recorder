@@ -1,4 +1,4 @@
-// SmartScores Recorder - main app logic (chart removed)
+// SmartScores Recorder - main app logic (summary updated; teacher remains populated after save)
 const STORAGE_KEY = 'smartscores_records_v1';
 
 let records = [];
@@ -127,13 +127,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     saveRecords();
+
+    // Reset the form except keep teacher populated to avoid spelling errors
+    // Resetting the form then restoring teacher is simplest and compatible
+    const savedTeacher = rec.teacher;
     form.reset();
-    // ensure selects reset to empty (in case browser keeps old value)
+    // restore teacher
+    teacherInput.value = savedTeacher;
+    // ensure selects are cleared
     subjectInput.value = '';
     gradeInput.value = '';
     streamInput.value = '';
     termInput.value = '';
     examInput.value = '';
+
     renderControls();
     renderAll();
     // Close drawer on mobile after saving
@@ -145,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelEdit.style.display = 'none';
     document.getElementById('formTitle').innerText = 'Add Record';
     form.reset();
+    // keep teacher cleared on cancel (user can type new)
+    teacherInput.value = '';
     subjectInput.value = '';
     gradeInput.value = '';
     streamInput.value = '';
@@ -436,42 +445,89 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderSummary(arr) {
-    // compute averages per term and overall
-    const terms = ['1','2','3'];
-    let overallTotal = 0, overallCount = 0;
-    const termAverages = {};
-
-    terms.forEach(t => {
-      const group = arr.filter(r => r.term === t);
-      const avg = group.length ? (group.reduce((s,x) => s + x.meanScore,0) / group.length) : 0;
-      termAverages[t] = {avg: Number(avg.toFixed(2)), count: group.length};
-      overallTotal += group.reduce((s,x) => s + x.meanScore, 0);
-      overallCount += group.length;
+    // Build grouped averages keyed by teacher|subject|grade|stream|examType|term|year
+    if (!arr.length) {
+      summaryDiv.innerHTML = '<div>No summary available.</div>';
+      return;
+    }
+    const map = {};
+    arr.forEach(r => {
+      const key = `${r.teacher}|||${r.subject}|||${r.grade}|||${r.stream}|||${r.examType}|||${r.term}|||${r.year}`;
+      if (!map[key]) map[key] = { teacher: r.teacher, subject: r.subject, grade: r.grade, stream: r.stream, examType: r.examType, term: r.term, year: r.year, total: 0, count: 0 };
+      map[key].total += r.meanScore;
+      map[key].count += 1;
     });
-    const overallAvg = overallCount ? Number((overallTotal / overallCount).toFixed(2)) : 0;
 
-    // Build HTML summary table
-    const box = document.createElement('div');
-    box.innerHTML = `
-      <table class="summary-table">
-        <thead><tr><th>Term</th><th>Average</th><th>Performance</th></tr></thead>
-        <tbody>
-          <tr><td>Term 1</td><td>${termAverages['1'].avg} (${termAverages['1'].count})</td><td>${perfSpan(termAverages['1'].avg)}</td></tr>
-          <tr><td>Term 2</td><td>${termAverages['2'].avg} (${termAverages['2'].count})</td><td>${perfSpan(termAverages['2'].avg)}</td></tr>
-          <tr><td>Term 3</td><td>${termAverages['3'].avg} (${termAverages['3'].count})</td><td>${perfSpan(termAverages['3'].avg)}</td></tr>
-          <tr style="font-weight:700"><td>Overall</td><td>${overallAvg} (${overallCount})</td><td>${perfSpan(overallAvg)}</td></tr>
-        </tbody>
-      </table>
+    const entries = Object.values(map).map(e => {
+      const avg = e.count ? Number((e.total / e.count).toFixed(2)) : 0;
+      const r = rubric(avg);
+      return {
+        teacher: e.teacher,
+        subject: e.subject,
+        grade: e.grade,
+        stream: e.stream,
+        examType: e.examType,
+        term: e.term,
+        year: e.year,
+        average: avg,
+        rubricKey: r.key,
+        rubricLabel: r.label,
+        rubricColor: r.color
+      };
+    });
+
+    // sort by teacher, subject, year, term for readability
+    entries.sort((a,b) => {
+      if (a.teacher !== b.teacher) return a.teacher.localeCompare(b.teacher, undefined, {numeric:true});
+      if (a.subject !== b.subject) return a.subject.localeCompare(b.subject, undefined, {numeric:true});
+      if (a.year !== b.year) return a.year.localeCompare(b.year, undefined, {numeric:true});
+      return a.term.localeCompare(b.term, undefined, {numeric:true});
+    });
+
+    const table = document.createElement('table');
+    table.className = 'summary-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Teacher</th>
+          <th>Subject</th>
+          <th>Grade</th>
+          <th>Stream</th>
+          <th>Exam Type</th>
+          <th>Term</th>
+          <th>Year</th>
+          <th>Average</th>
+          <th>Rubric</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
     `;
+    const tbody = table.querySelector('tbody');
+    entries.forEach(en => {
+      const tr = document.createElement('tr');
+      const add = (txt) => {
+        const td = document.createElement('td');
+        td.textContent = txt;
+        return td;
+      };
+      tr.appendChild(add(en.teacher));
+      tr.appendChild(add(en.subject));
+      tr.appendChild(add(en.grade));
+      tr.appendChild(add(en.stream));
+      tr.appendChild(add(en.examType));
+      tr.appendChild(add(en.term));
+      tr.appendChild(add(en.year));
+      tr.appendChild(add(en.average));
+      const rubricTd = document.createElement('td');
+      rubricTd.innerHTML = `<span style="color:${en.rubricColor};font-weight:700">${emojiFor(en.rubricKey)} ${en.rubricLabel}</span>`;
+      tr.appendChild(rubricTd);
+      tbody.appendChild(tr);
+    });
+
     summaryDiv.innerHTML = '';
-    summaryDiv.appendChild(box);
+    summaryDiv.appendChild(table);
   }
 
-  function perfSpan(avg) {
-    if (!avg && avg !== 0) return '';
-    const r = rubric(avg);
-    return `<span style="color:${r.color};font-weight:700">${emojiFor(r.key)} ${r.label}</span>`;
-  }
   function emojiFor(key){
     if(key==='exceed') return '🏅';
     if(key==='meet') return '😊';
